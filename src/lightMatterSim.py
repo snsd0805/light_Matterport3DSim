@@ -106,6 +106,9 @@ class LightMatterSim():
 
         self.populateNavigable()
 
+        # then, here should update view index & rgb
+        # but i doesn't know how view index updated and when how rgb be update
+
     def __load_features(self, infile):
         '''
             load image features from the TSV file

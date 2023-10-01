@@ -6,3 +6,10 @@
 
     Features are saved in tsv format in the `img_features` directory.
 
+## Get navigable viewpoints
+You can run `python3 script/getBavugabkePoints.py` to get all navigable viewpoints in simulation but you must run this program in the docker container which support the original `Matterport3DSim`.
+
+These viewpoints will be saved in json file in `navigate/` directory.
+
+Without running the script, You can directly download these files at this [link](https://snsd0805.com/data/navigate.zip) 
+

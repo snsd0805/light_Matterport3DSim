@@ -1,15 +1,32 @@
 import json
+import math
+from datetime import datetime
+
 
 class PseudoViewPoint:
-    def __init__(self, viewpoint):
-        self.ix = viewpoint.ix
-        self.rel_distance = viewpoint.rel_distance
-        self.rel_elevation = viewpoint.rel_elevation
-        self.rel_heading = viewpoint.rel_heading
-        self.viewpointId = viewpoint.viewpointId
-        self.x = viewpoint.x
-        self.y = viewpoint.y
-        self.z = viewpoint.z
+    
+    def __init__(self, inp):
+        if type(inp) is str:
+            self.from_node_id(inp)
+        else:
+            self.from_viewpoint(inp)
+        
+        
+    def from_viewpoint(self, viewpoint):
+        self.ix = viewpoint['ix']
+        self.rel_distance = viewpoint['rel_distance']
+        self.rel_elevation = viewpoint['rel_elevation']
+        self.rel_heading = viewpoint['rel_heading']
+        self.viewpointId = viewpoint['viewpointId']
+        self.x = viewpoint['x']
+        self.y = viewpoint['y']
+        self.z = viewpoint['z']
+        
+    def from_node_id(self, viewpointId):
+        self.viewpointId = viewpointId
+
+
+
 
 class PseudoSimState:
     def __init__(self, state=None):
@@ -38,16 +55,16 @@ class PseudoSimState:
         self.scanId = scanId
         self.navigableLocations = navigableLocations
         self.node_id = node_id
-        #self.location
+        self.location = PseudoViewPoint(node_id)
         self.sync_heading_and_elevation()
         
     def sync_heading_and_elevation(self):
         self.heading = self.headings_by_views[self.viewIndex]
-        self.elevation = self.elevation_by_view[self.viewIndex]
+        self.elevation = self.elevation_by_views[self.viewIndex]
         
     def update_view(self, heading, elevation):
         if heading != 0:
-            self.viewIndex += heading
+            self.viewIndex += int(heading)
             if self.viewIndex%12==0:
                 self.viewIndex -= 12
         if elevation != 0:
@@ -59,6 +76,9 @@ class PseudoSimulator:
     def __init__(self):
         self.state = PseudoSimState()
         self.routes = None
+        self.debug_log = True
+        if self.debug_log:
+            self.log_fp = open(f"{datetime.now()}_pseudo_sim.log", "w")
         
     def initial_heading_to_view_idx(self, initial_heading):
         heading = round(initial_heading/math.radians(30))
@@ -66,37 +86,74 @@ class PseudoSimulator:
             heading = 0
         return 12 + heading
     
-    def setRenderingEnabled(x):
+    def setRenderingEnabled(self, x):
         pass
     
-    def setDiscretizedViewingAngles(x):
+    def setDiscretizedViewingAngles(self, x):
         pass
     
-    def setCameraResolution(x, y):
+    def setCameraResolution(self, x, y):
         pass
     
-    def setCameraVFOV(x):
+    def setCameraVFOV(self, x):
         pass
     
-    def initialize():
+    def initialize(self):
         pass
     
     def load_cache():
         pass
+    
+    def log_state(self):
+        for k in ['scanId', 'node_id', 'viewIndex', 'heading', 'elevation']:
+            self.log_fp.write(f"{k}: {self.state.__dict__[k]}\n")
         
-    def makeAction(index, heading, elevation):
-        new_node_id = navigableLocations[self.state.node_id][str(self.state.viewIndex)][index]
+    def makeAction(self, index, heading, elevation):
+        index, heading, elevation = index[0], heading[0], elevation[0]
+        navigableLocations = self.routes[self.state.node_id][self.state.viewIndex]
+        new_node_id = navigableLocations[index].viewpointId
         if self.state.node_id != new_node_id:
             self.state.node_id = new_node_id
-            self.state.navigableLocations = self.routes[new_node_id]
+        
         self.state.update_view(heading, elevation)
+        self.state.navigableLocations = self.routes[new_node_id][self.state.viewIndex]
+        
+        if self.debug_log:
+            self.log_fp.write(f"makeAction called: {index}, {heading}, {elevation}\n")
+            self.log_state()
     
-    def getState():
+    def getState(self):
         return [self.state]
     
-    def newEpisodes(scanId, node_id, heading, elevation):
-        self.routes = json.load(open(f'navigate/{scanId}.json'))
-        navigableLocations = self.routes[node_id]
-        viewIndex = self.initial_heading_to_view_idx(initial_heading)
+    def node_to_pseudoviewpoint(self, view):
+        return [PseudoViewPoint(node) for node in view]
+
+    def views_to_pseudoviewpoint(self, views):
+        return [self.node_to_pseudoviewpoint(view) for view in views]
+
+    def load_routes(self, routes):
+        ret = {}
+        for node_id, views in routes.items():
+            ret[node_id] = self.views_to_pseudoviewpoint(views)
+        return ret
+
+    def newEpisode(self, scanId, node_id, heading, elevation):
+        scanId, node_id, heading, elevation = scanId[0], node_id[0], heading[0], elevation[0]
+        #self.routes = json.load(open(f'navigate/{scanId}.json'))
+        
+        #make it load_routes
+        raw_routes = json.load(open(f'routes/{scanId}.json'))
+        self.routes = self.load_routes(raw_routes)
+        
+        if (heading, elevation) == (0, math.radians(-30)): #some stupid workaround
+            viewIndex = 0
+        else:
+            viewIndex = self.initial_heading_to_view_idx(heading)
+            
+        navigableLocations = self.routes[node_id][viewIndex]
         self.state.update(scanId, node_id, viewIndex, navigableLocations)
+        
+        if self.debug_log:
+            self.log_fp.write("newEpisode called\n")
+            self.log_state()
         

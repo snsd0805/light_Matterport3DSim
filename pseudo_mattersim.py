@@ -68,15 +68,16 @@ class PseudoSimState:
             if self.viewIndex%12==0:
                 self.viewIndex -= 12
         if elevation != 0:
-            self.viewIndex += 12
+            self.viewIndex += int(12 * elevation)
         self.sync_heading_and_elevation()
     
     
 class PseudoSimulator:
-    def __init__(self):
+    def __init__(self, route_root, debug_log=False):
         self.state = PseudoSimState()
         self.routes = None
-        self.debug_log = True
+        self.debug_log = debug_log
+        self.route_root = route_root
         if self.debug_log:
             self.log_fp = open(f"{datetime.now()}_pseudo_sim.log", "w")
         
@@ -142,7 +143,7 @@ class PseudoSimulator:
         #self.routes = json.load(open(f'navigate/{scanId}.json'))
         
         #make it load_routes
-        raw_routes = json.load(open(f'routes/{scanId}.json'))
+        raw_routes = json.load(open(f'{self.route_root}/{scanId}.json'))
         self.routes = self.load_routes(raw_routes)
         
         if (heading, elevation) == (0, math.radians(-30)): #some stupid workaround
